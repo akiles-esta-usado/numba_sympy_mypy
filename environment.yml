@@ -1,0 +1,8 @@
+name: hpc_protocol
+
+dependencies:
+  - numpy
+  - mypy
+  - scipy
+  - numba
+  - sympy
