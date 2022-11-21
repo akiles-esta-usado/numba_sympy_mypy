@@ -1,157 +1,61 @@
-from cmath import log
+from math import log
 import sympy as sp
-from time import perf_counter_ns
 from numba import njit
+import timeit
 
+from typing import Callable
 
-def results(title, interval_ns):
-  print (f"{title}. {interval_ns * 1e-3:.2f} [us]\n")
+def evaluation_us(stms: str, context: Callable) -> float:
+  number = 1_000_000
 
+  results = min( timeit.repeat(stms, repeat=5, number=number, globals=context()))
 
-
+  # 1e6 evaluations over 1e6 convertion ratio to us resolves into 1.
+  return results
 
 
 def sympy_evaluation():
   x, y = sp.symbols("x y")
   expr_sp = 3*x**2 + sp.log(x**2 + y**2 + 1)
+  expr = expr_sp.subs({x: 17, y: 42})
 
-  f1 = expr_sp.subs({x: 17, y: 42})
-  print(f"result in {f1.evalf()}")
+  results = evaluation_us("expr.evalf()", locals)
 
-  start = perf_counter_ns()
-
-  f1.evalf()
-  f1.evalf()
-  f1.evalf()
-  f1.evalf()
-  f1.evalf()
-  f1.evalf()
-  f1.evalf()
-  f1.evalf()
-  f1.evalf()
-  f1.evalf()
-
-  end = perf_counter_ns()
-  results("sympy evalf", (end - start) / 10)
+  print(f"sympy evaluation: {expr.evalf():0.4f}, {results:0.3f} [us]")
 
 
 def lambda_evaluation():
   expr = lambda x, y : 3*x**2 + log(x**2 + y**2 + 1)
-  print(f"result in {expr(17, 42)}")
   
+  results = evaluation_us("expr(17, 42)", locals)
 
-  start = perf_counter_ns()
-
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-
-  end = perf_counter_ns()
-  results("lambda evaluation", (end - start) / 10)
+  print(f"lambda function: {expr(17, 42):0.4f}, {results:0.3f} [us]")
 
 
 def lambdify_evaluation(module = "math"):
   x, y = sp.symbols("x y")
   expr_sp = 3*x**2 + sp.log(x**2 + y**2 + 1)
-
   expr = sp.lambdify([x, y], expr_sp, module)
-  print(f"result in {expr(17, 42)}")
 
-  start = perf_counter_ns()
+  results = evaluation_us("expr(17, 42)", locals)
 
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-
-  end = perf_counter_ns()
-  results(f"lambdify evaluation with {module}", (end - start) / 10)
+  print(f"lambdify with {module}: {expr(17, 42):0.4f}, {results:0.3f} [us]")
 
 
 
 def lambdify_jitted_evaluation(module = "math"):
   x, y = sp.symbols("x y")
   expr_sp = 3*x**2 + sp.log(x**2 + y**2 + 1)
-
   expr = njit(sp.lambdify([x, y], expr_sp, module))
-  print(f"result in {expr(17, 42)}")
 
-  start = perf_counter_ns()
+  results = evaluation_us("expr(17, 42)", locals)
 
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-  expr(17, 42)
-
-  end = perf_counter_ns()
-  results(f"lambdify evaluation with numba. {module}", (end - start) / 10)
+  print(f"lambdify with numba and {module}: {expr(17, 42):0.4f}, {results:0.3f} [us]")
 
 
-
-def lambdify_jitted_timeit(module = "math"):
-
-  import timeit
-
-
-  setup=f"""
-import math
-import sympy as sp
-from numba import njit
-
-x, y = sp.symbols("x y")
-expr_sp = 3*x**2 + sp.log(x**2 + y**2 + 1)
-
-expr = njit(sp.lambdify([x, y], expr_sp, modules=[{module}]))
-print("hola")
-  """
-
-  results = timeit.timeit("expr(17, 42)",setup=setup)
-  print(results)
-
-  #results(f"lambdify evaluation with numba and {module}", (end - start) / 10)
-
-
-
-
-def better_timeit(module = "math"):
-  x, y = sp.symbols("x y")
-  expr_sp = 3*x**2 + sp.log(x**2 + y**2 + 1)
-
-  expr = njit(sp.lambdify([x, y], expr_sp, module))
-  print(f"result in {expr(17, 42)}")
-  import timeit
-
-  number = 1 << 20
-
-  timeit_result = timeit.timeit("expr(17, 42)", globals=locals(), number=2**20)
-  print(f"lambdify evaluation with numba and {module} took {timeit_result * 1e6 / number} [us]")
-
-
-# sympy_evaluation()
-# lambda_evaluation()
-# lambdify_evaluation("math")
-# lambdify_evaluation("numpy")
-# lambdify_jitted_evaluation("math")
-# lambdify_jitted_evaluation("numpy")
-
-#lambdify_jitted_timeit()
-better_timeit()
+sympy_evaluation()
+lambda_evaluation()
+lambdify_evaluation("math")
+lambdify_evaluation("numpy")
+lambdify_jitted_evaluation("math")
+lambdify_jitted_evaluation("numpy")
